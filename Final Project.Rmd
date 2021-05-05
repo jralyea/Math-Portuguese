@@ -1,0 +1,30 @@
+---
+title: "Comparing Students' Grades"
+author: "Jay Ralyea, William Cull, and John Hope"
+date: "5/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+
+
+```{r}
+## Load in the data
+math <- read_csv("student-mat.csv")
+por <- read_csv("student-por.csv")
+
+## Data exploration
+quantile(math$G3)
+quantile(por$G3)
+
+## Percent zeros
+table(math$G3)[1] / nrow(math)
+table(por$G3)[1] / nrow(por)
+
+## 
+```
+
