@@ -25,6 +25,48 @@ quantile(por$G3)
 table(math$G3)[1] / nrow(math)
 table(por$G3)[1] / nrow(por)
 
-## 
+## Factor variables in each dataset
+factors <- c("school", "sex", "address", "famsize", "Pstatus", "Medu",
+             "Fedu", "Mjob", "Fjob", "reason", "guardian", "traveltime",
+             "studytime", "failures", "schoolsup", "famsup", "paid",
+             "activities", "nursery", "higher", "internet", "romantic")
+
+math[factors] <- sapply(math[factors], as.factor)
+por[factors] <- sapply(por[factors], as.factor)
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
