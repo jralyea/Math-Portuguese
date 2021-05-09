@@ -7,7 +7,11 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(tidyverse)
+library(tidyverse) # whole bunch of useful packages
+library(tidymodels)
+library(modelr)
+library(randomForest) # builds random forest models
+library(caret) # builds models and partitions data
 ```
 
 
@@ -33,8 +37,32 @@ factors <- c("school", "sex", "address", "famsize", "Pstatus", "Medu",
 
 math[factors] <- sapply(math[factors], as.factor)
 por[factors] <- sapply(por[factors], as.factor)
+
+## Remove G1 and G2 grades (determine G3 grade)
+math <- math %>%
+  select(-G1, -G2)
+por <- por %>%
+  select(-G1, -G2)
+  
 ```
 
+```{r}
+## Split the data for model building
+
+## Create the partition
+set.seed(2000) # ensure reproducibility
+math.part <- createDataPartition(math$G3, times=1, p=0.8, list=FALSE)
+set.seed(2000) # ensure reproducibility
+por.part <- createDataPartition(por$G3, times=1, p=0.8, list = FALSE)
+
+## Math training and testing data
+math.training <- math[math.part,]
+math.test <- math[-math.part,]
+
+## Portuguese training and testing data
+por.training <- por[por.part,]
+por.test <- por[-por.part,]
+```
 
 
 
