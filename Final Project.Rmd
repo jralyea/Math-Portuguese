@@ -44,6 +44,14 @@ math <- math %>%
   select(-G1, -G2)
 por <- por %>%
   select(-G1, -G2)
+
+## Change the G3 score to be poor, good, or excellent
+math$G3 <- cut(math$G3,
+                   breaks = c(-Inf, 8, 13, Inf),
+                   labels = c("poor", "good", "excellent"))
+por$G3 <- cut(por$G3,
+                  breaks = c(-Inf, 10, 13, Inf),
+                  labels = c("poor", "good", "excellent"))
   
 ```
 
@@ -54,18 +62,17 @@ por <- por %>%
 
 
 # School
-math.school <- math %>%
-  group_by(school) %>%
-  summarise(mean = mean(G3))
-math.school %>%
-  ggplot(aes(x = school, y = mean, fill = school)) + 
-  geom_bar(stat = "identity")
+math %>%
+  ggplot(aes(x = G3, fill = G3)) + 
+  geom_bar() + facet_grid(cols = vars(school)) +
+  scale_fill_viridis_d() +
+  theme_bw()
 
 por %>%
-  group_by(school) %>%
-  summarise(mean = mean(G3)) %>%
-  ggplot(aes(x = school, y = mean, fill = school)) + 
-  geom_bar(stat = "identity")
+  ggplot(aes(x = G3, fill = G3)) + 
+  geom_bar() + facet_grid(cols = vars(school)) +
+  scale_fill_viridis_d() +
+  theme_bw()
 
 
 # Parental job
@@ -111,18 +118,6 @@ por %>%
 
 
 
-```
-
-
-
-```{r}
-## Change the G3 score to be low, moderate, or high
-math$binned <- cut(math$G3,
-    breaks = c(-Inf, 7, 13, Inf),
-    labels = c("low", "middle", "high"))
-por$binned <- cut(por$G3,
-                  breaks = c(-Inf, 7, 13, Inf),
-                  labels = c("low", "middle", "high"))
 ```
 
 
