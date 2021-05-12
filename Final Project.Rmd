@@ -97,25 +97,6 @@ por %>%
 ```
 
 ```{r}
-# Age
-math %>%
-  ggplot(aes(x = age, fill = G3)) + 
-  geom_bar(position = "dodge") +
-  scale_fill_viridis_d() + 
-  theme_bw() +
-  scale_x_continuous(breaks = seq(15, 22, 1)) +
-  theme(panel.grid.minor.x = element_blank())
-
-por %>%
-  ggplot(aes(x = age, fill = G3)) + 
-  geom_bar(position = "dodge") +
-  scale_fill_viridis_d() + 
-  theme_bw() +
-  scale_x_continuous(breaks = seq(15, 22, 1)) +
-  theme(panel.grid.minor.x = element_blank())
-```
-
-```{r}
 # Family size
 math %>%
   ggplot(aes(x = famsize, fill = G3)) + 
@@ -199,13 +180,51 @@ por %>%
   theme_bw()
 ```
 
+```{r}
+# Age
+math %>%
+  ggplot(aes(x = age, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() + 
+  theme_bw() +
+  scale_x_continuous(breaks = seq(15, 22, 1)) +
+  theme(panel.grid.minor.x = element_blank())
 
+por %>%
+  ggplot(aes(x = age, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() + 
+  theme_bw() +
+  scale_x_continuous(breaks = seq(15, 22, 1)) +
+  theme(panel.grid.minor.x = element_blank())
+```
 
+Generally, the older the student is the more likely they are to succeed. This is especially true for their Portuguese class. The exception to this rule is this generalization is students who are over 18 years of age. Students 19 years old or older likely have extenuating circumstances that are keeping them in the secondary school. Those students may have been held back in the past due to performance or behavioral issues. Either of these situations is likely to have a negative effect on the student's performance in the classroom.
 
+```{r}
+# Family size
+math %>%
+  ggplot(aes(x = famsize, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  labs(title = "Distirbution of Math G3 Scores by Family Size",
+       y = "Count of Scores", x = "Family Size", fill = "G3 Score") +
+  scale_x_discrete(labels = c("GT3" = "Greater than 3",
+                              "LE3" = "Less than or equal to 3"))
 
+por %>%
+  ggplot(aes(x = famsize, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  labs(title = "Distirbution of Portuguese G3 Scores by Family Size",
+       y = "Count of Scores", x = "Family Size", fill = "G3 Score") +
+  scale_x_discrete(labels = c("GT3" = "Greater than 3",
+                              "LE3" = "Less than or equal to 3"))
+```
 
-
-
+ 
 
 ```{r}
 ## Split the data for model building
