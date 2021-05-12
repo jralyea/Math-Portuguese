@@ -90,6 +90,39 @@ por %>%
   coord_cartesian(ylim = c(0,16))
 
 
+# Address
+math %>%
+  ggplot(aes(x = address, y = G3, fill = address)) + 
+  geom_bar(stat = "summary", fun.y = "mean") +
+  scale_fill_viridis_d() + 
+  theme_bw() + 
+  labs(title = "Mean G3 Score for Different Addresses", 
+       x = "Address Location", y = "Mean G3 Score", fill = "Address Location")
+
+por %>%
+  ggplot(aes(x = address, y = G3, fill = address)) + 
+  geom_bar(stat = "summary", fun.y = "mean") +
+  scale_fill_viridis_d() + 
+  theme_bw() + 
+  labs(title = "Mean G3 Score for Different Addresses", 
+       x = "Address Location", y = "Mean G3 Score", fill = "Address Location")
+
+# Different Subjects
+
+
+
+```
+
+
+
+```{r}
+## Change the G3 score to be low, moderate, or high
+math$binned <- cut(math$G3,
+    breaks = c(-Inf, 7, 13, Inf),
+    labels = c("low", "middle", "high"))
+por$binned <- cut(por$G3,
+                  breaks = c(-Inf, 7, 13, Inf),
+                  labels = c("low", "middle", "high"))
 ```
 
 
