@@ -46,6 +46,34 @@ por <- por %>%
   
 ```
 
+
+
+```{r}
+## EDA
+
+
+# School
+math.school <- math %>%
+  group_by(school) %>%
+  summarise(mean = mean(G3))
+math.school %>%
+  ggplot(aes(x = school, y = mean, fill = school)) + 
+  geom_bar(stat = "identity")
+
+por %>%
+  group_by(school) %>%
+  summarise(mean = mean(G3)) %>%
+  ggplot(aes(x = school, y = mean, fill = school)) + 
+  geom_bar(stat = "identity")
+```
+
+
+
+
+
+
+
+
 ```{r}
 ## Split the data for model building
 
