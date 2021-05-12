@@ -57,6 +57,7 @@ por$G3 <- cut(por$G3,
 
 
 # EDA
+## Data Issues
 ```{r}
 # School
 math %>%
@@ -164,7 +165,7 @@ por %>%
   ggplot(aes(x = Mjob, fill = G3)) + 
   geom_bar(position = "dodge") + 
   scale_fill_viridis_d() +
-  labs(title = "Distribution of Math G3 Scores by Mother's Job",
+  labs(title = "Distribution of Portuguese G3 Scores by Mother's Job",
        x = "Mother's Job", y = "Count of Score", fill = "G3 Score") +
   theme_bw()
 
@@ -172,30 +173,32 @@ por %>%
   ggplot(aes(x = Fjob, fill = G3)) + 
   geom_bar(position = "dodge") + 
   scale_fill_viridis_d() +
-  labs(title = "Distribution of Math G3 Scores by Father's Job",
+  labs(title = "Distribution of Portuguese G3 Scores by Father's Job",
        x = "Father's Job", y = "Count of Score", fill = "G3 Score") +
   theme_bw()
 ```
 
+## Potentially Important Factors
+
 ```{r}
-# Address
+# Failures
 math %>%
-  ggplot(aes(x = address, y = G3, fill = address)) + 
-  geom_bar(stat = "summary", fun.y = "mean") +
-  scale_fill_viridis_d() + 
-  theme_bw() + 
-  labs(title = "Mean G3 Score for Different Addresses", 
-       x = "Address Location", y = "Mean G3 Score", fill = "Address Location")
+  ggplot(aes(x = failures, fill = G3)) + 
+  geom_bar(position = "dodge") + 
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of Math G3 Scores by Number of Failures",
+       x = "Number of Failures", y = "Count of Scores", fill = "G3 Score") +
+  theme_bw()
 
 por %>%
-  ggplot(aes(x = address, y = G3, fill = address)) + 
-  geom_bar(stat = "summary", fun.y = "mean") +
-  scale_fill_viridis_d() + 
-  theme_bw() + 
-  labs(title = "Mean G3 Score for Different Addresses", 
-       x = "Address Location", y = "Mean G3 Score", fill = "Address Location")
-
+  ggplot(aes(x = failures, fill = G3)) + 
+  geom_bar(position = "dodge") + 
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of Portuguese G3 Scores by Number of Failures",
+       x = "Number of Failures", y = "Count of Scores", fill = "G3 Score") +
+  theme_bw()
 ```
+
 
 
 
@@ -225,6 +228,39 @@ por.test <- por[-por.part,]
 
 
 
+```{r}
+## Divide data: training/validation/testing
+math.div <- math %>%
+  initial_split(prop = 0.6, strata = school)
+
+math.div2 <- math.div %>%
+  testing() %>%
+  initial_split(prop = 0.5, strata = school)
+
+math.train <- training(math.div)
+math.validate <- training(math.div2)
+math.test <- testing(math.div2)
+
+
+#general rule to start with the mytry value is square root of the predictors
+mytry_tune <- function(x){
+  xx <- dim(x)[2]-1
+  sqrt(xx)
+}
+
+mytry_tune(math)
+
+
+## Build random forest
+## Four variables are eligible for a split at each node
+RF.mod1 <- randomForest(G3 ~ ., data = math.train,
+                        mtry = 6, importance = TRUE)
+
+RF.mod1
+
+RF.mod1 %>%
+  importance()
+```
 
 
 
