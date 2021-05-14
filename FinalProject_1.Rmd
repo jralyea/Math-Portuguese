@@ -1,0 +1,499 @@
+---
+title: "Comparing Students' Grades"
+author: "Jay Ralyea, William Cull, and John Hope"
+date: "5/5/2021"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse) # whole bunch of useful packages
+library(tidymodels)
+library(modelr)
+library(randomForest) # builds random forest models
+library(caret) # builds models and partitions data
+library(viridis)
+library(rio)
+library(plyr)
+library(tidyverse)
+library(rpart)
+library(psych)
+library(pROC)
+library(rpart.plot)
+library(rattle)
+library(caret)
+library(C50)
+library(mlbench)
+library(randomForest)
+library(ROCR)
+library(fairness)
+library(plotly)
+```
+
+```{r}
+
+## Load in the data
+math <- read_csv("student-mat.csv")
+por <- read_csv("student-por.csv")
+## Data exploration
+quantile(math$G3)
+quantile(por$G3)
+## Percent zeros
+table(math$G3)[1] / nrow(math)
+table(por$G3)[1] / nrow(por)
+## Factor variables in each dataset
+factors <- c("school", "sex", "address", "famsize", "Pstatus", "Medu",
+             "Fedu", "Mjob", "Fjob", "reason", "guardian", "traveltime",
+             "studytime", "failures", "schoolsup", "famsup", "paid",
+             "activities", "nursery", "higher", "internet", "romantic")
+
+math[factors] <- lapply(math[factors], as.factor)
+por[factors] <- lapply(por[factors], as.factor)
+
+## Remove G1 and G2 grades (determine G3 grade)
+math <- math %>%
+  select(-G1, -G2)
+por <- por %>%
+  select(-G1, -G2)
+## Change the G3 score to be poor, good, or excellent
+math$G3 <- cut(math$G3,
+                   breaks = c(-Inf, 8, 13, Inf),
+                   labels = c("poor", "good", "excellent"))
+por$G3 <- cut(por$G3,
+                  breaks = c(-Inf, 10, 13, Inf),
+                  labels = c("poor", "good", "excellent"))
+  
+```
+
+# EDA
+## Data Issues
+```{r}
+# School
+math %>%
+  ggplot(aes(x = school, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  labs(title = "Distirbution of Math G3 Scores by School", 
+       x = "School", y = "Count of Scores", fill = "G3 Score") +
+  scale_x_discrete(labels = c("GP" = "Gabriel Pereira", 
+                              "MS" = "Mouzinho da Silveira"))
+por %>%
+  ggplot(aes(x = school, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  labs(title = "Distirbution of Portuguese G3 Scores by School", 
+       x = "School", y = "Count of Scores", fill = "G3 Score") +
+  scale_x_discrete(labels = c("GP" = "Gabriel Pereira", 
+                              "MS" = "Mouzinho da Silveira"))
+```
+
+```{r}
+# Gender
+math %>%
+  ggplot(aes(x = G3, fill = G3)) + 
+  geom_bar() + facet_grid(cols = vars(sex)) +
+  scale_fill_viridis_d() +
+  theme_bw()
+por %>%
+  ggplot(aes(x = G3, fill = G3)) + 
+  geom_bar() + facet_grid(cols = vars(sex)) +
+  scale_fill_viridis_d() +
+   theme_bw()
+```
+
+```{r}
+ # Age
+ math %>%
+   ggplot(aes(x = age, fill = G3)) + 
+   geom_bar(position = "dodge") +
+   scale_fill_viridis_d() + 
+   theme_bw() +
+   scale_x_continuous(breaks = seq(15, 22, 1)) +
+   theme(panel.grid.minor.x = element_blank())
+
+ por %>%
+   ggplot(aes(x = age, fill = G3)) + 
+   geom_bar(position = "dodge") +
+   scale_fill_viridis_d() + 
+   theme_bw() +
+   scale_x_continuous(breaks = seq(15, 22, 1)) +
+   theme(panel.grid.minor.x = element_blank())
+```
+
+
+```{r}
+ # Age
+ math %>%
+   ggplot(aes(x = age, fill = G3)) + 
+   geom_bar(position = "dodge") +
+   scale_fill_viridis_d() + 
+   theme_bw() +
+   scale_x_continuous(breaks = seq(15, 22, 1)) +
+   theme(panel.grid.minor.x = element_blank())
+
+ por %>%
+   ggplot(aes(x = age, fill = G3)) + 
+   geom_bar(position = "dodge") +
+   scale_fill_viridis_d() + 
+   theme_bw() +
+   scale_x_continuous(breaks = seq(15, 22, 1)) +
+   theme(panel.grid.minor.x = element_blank())
+```
+
+Generally, the older the student is the more likely they are to succeed. This is especially true for their Portuguese class. The exception to this rule is this generalization is students who are over 18 years of age. Students 19 years old or older likely have extenuating circumstances that are keeping them in the secondary school. Those students may have been held back in the past due to performance or behavioral issues. Either of these situations is likely to have a negative effect on the student's performance in the classroom.
+
+```{r}
+ # Family size
+ math %>%
+   ggplot(aes(x = famsize, fill = G3)) + 
+   geom_bar(position = "dodge") +
+   scale_fill_viridis_d() +
+   theme_bw() +
+   labs(title = "Distirbution of Math G3 Scores by Family Size",
+        y = "Count of Scores", x = "Family Size", fill = "G3 Score") +
+   scale_x_discrete(labels = c("GT3" = "Greater than 3",
+                               "LE3" = "Less than or equal to 3"))
+
+ por %>%
+   ggplot(aes(x = famsize, fill = G3)) + 
+   geom_bar(position = "dodge") +
+   scale_fill_viridis_d() +
+   theme_bw() +
+   labs(title = "Distirbution of Portuguese G3 Scores by Family Size",
+        y = "Count of Scores", x = "Family Size", fill = "G3 Score") +
+   scale_x_discrete(labels = c("GT3" = "Greater than 3",
+                               "LE3" = "Less than or equal to 3"))
+```
+
+
+# Methods
+To answer our initial questions, "are the factors that contribute to success in a math class the same factors as in Portuguese class", and "if there are any primary factors involved in G3 scores for both subjects, what are they and what are their relative significance levels", we will build classification models. Classification models use machine learning methods to assess relative varible importance, and predict a response. In our situation, we want to know which variables are of similar and varying importance to Math and Portuguese grades. To do so, we will need to build at least two models, one for the math data, and one for the Portuguese data. The following section will take you through building several different models, as well as the ones we deemed to be the best.
+
+The first step in the model building process was preparation. Upon exploratory data anlaysis, we discovered that the math and Portuguese data were slightly imbalanced. The math data contained 395 observations, while the Portuguese data contined 649 observations. In attempt to combat this imbalance, we chose to undersample to the Portuguese data down to the size of the math dta. To do so, we took a random sample of 395 rows of the Portuguese data, with replacement.
+
+```{r}
+## Undersample the portuguese data
+
+set.seed(2000) # ensure reproducibility
+por <- sample_n(por, 395, replace = TRUE)
+```
+
+With the two datasets being more balanced, we can now move into the model building. The first step in this process is to create testing and training data. Our first model will be a random forest, which requires slightly more training data than other models, so the split will be 90% for training, and 10% for testing. These splits are created for both the math and the Portuguese data.
+
+```{r}
+
+## Split the data for model building
+
+set.seed(2000) # ensure reproducibility
+math.part <- createDataPartition(math$G3, times=1, p=0.9, list=FALSE)
+set.seed(2000) # ensure reproducibility
+por.part <- createDataPartition(por$G3, times=1, p=0.9, list = FALSE)
+
+## Math training and testing data
+math.training <- math[math.part,]
+math.test <- math[-math.part,]
+
+## Portuguese training and testing data
+por.training <- por[por.part,]
+por.test <- por[-por.part,]
+```
+
+With our data partition created, we can next move into actually creating the random forest models. Two random forests here were created, one for math, and one for Portuguese scores. The two models were created using the default random forest settings, except "mtry" was set to 5 for both models, as this was calculated to be the square root of the predictor values, and number of trees was set to 1000 for both models. All of the variables in the prepared dataset were used for both models. Below is the results of each random forest.
+
+```{r}
+# general rule to start with the mytry value is square root of the predictors
+mytry_tune <- function(x){
+  xx <- dim(x)[2]-1
+  sqrt(xx)
+}
+mytry_tune(math)
+mytry_tune(por)
+
+## Build random forest
+## Five variables are eligible for a split at each node
+set.seed(2000)
+math_forest <- randomForest(G3 ~., #all variables
+                        data = math.training, mtry = 5,  ntree = 1000,importance = TRUE)
+
+math_forest
+
+set.seed(2000)
+por_forest <- randomForest(G3 ~., #all variables
+                        data = por.training, mtry = 5, ntree = 1000, importance = TRUE)
+
+por_forest
+```
+
+Here, we see that the estimates of the error for math and Portuguese data are 42.98% and 26.05%, respectively. The estimated error rate of 42.98% of the math forest is very subpar, but as will see later on, is a recurring theme for the math models. The estimate error rate of 26.05% for the Portuguese forest is decent.
+
+
+```{r}
+
+## Decision trees
+
+## Math
+
+set.seed(2000)
+math_gini = rpart(G3~.,
+                            method = "class",
+                            parms = list(split = "gini"),
+                            data = math.training, #<- data used
+                            control = rpart.control(cp=.025))
+
+# Portuguese
+  
+set.seed(2000)
+por_gini = rpart(G3~.,
+                            method = "class",
+                            parms = list(split = "gini"),
+                            data = por.training, #<- data used
+                            control = rpart.control(cp=.03))
+```
+
+The next series of models we will test will be decision trees. We will be using the same testing and training data as the random forest models, and will be using the CART method of decision trees. The decision trees were created using default settings, and complexities parameters of 0.025 fpr the math and 0.03 for the Portuguese model. After creating the models, we can determine the model accuracies to get a glimpse into model peformance.
+
+```{r}
+
+## Confusion matrix
+
+## Math
+math_predict = predict(math_gini, math.test, type= "class")
+
+confusionMatrix(as.factor(math_predict), as.factor(math.test$G3), positive = "1", dnn=c("Prediction", "Actual"), mode = "sens_spec")
+
+## Portuguese
+por_predict = predict(por_gini, por.test, type= "class")
+
+confusionMatrix(as.factor(por_predict), as.factor(por.test$G3), positive = "1", dnn=c("Prediction", "Actual"), mode = "sens_spec")
+```
+
+As we can see from the confusion matrices of the two decision trees, these models are performing very subpar, more so than the random forest models. The math decision tree has an accuracy of 0.5385, while the Portuguese tree has an accuracy of 57.89%. Both of these measures are pretty bad, so as of now, decision trees will be below our random forests.
+
+The last set of models we will be testing out are kNN models. For kNN, we had to isolate out all of the quantitative variables in the dataset, and then proceeded to scale them. Then, we had to re-partition the data, with a 80% training and 20% testing split. We then created the kNN models for both math and Portuguese using the default settings of the train() function with method 'knn'. Below, we can see the confusion matrices for both models
+
+```{r}
+## kNN
+
+math.2 <- math[c(3,7,8,13:15,24:31)]
+por.2 <- por[c(3,7,8,13:15,24:31)]
+
+math.2[1:13] = lapply(math.2[1:13], function(x) as.numeric(x))
+por.2[1:13] = lapply(por.2[1:13], function(x) as.numeric(x))
+
+math.2[1:13] = lapply(math.2[-14], function(x) scale(x))
+por.2[1:13] = lapply(por.2[-14], function(x) scale(x))
+
+math.2 <- as.data.frame(math.2)
+por.2 <- as.data.frame(por.2)
+              
+## Create the partition
+set.seed(2000) #ensure reproducibility
+math.part.2 <- createDataPartition(math.2$G3, times=1, p=0.8, list=FALSE)
+set.seed(2000) #ensure reproducibility
+por.part.2 <- createDataPartition(por.2$G3, times=1, p=0.8, list = FALSE)
+
+## Math training and testing data
+math.training.2 <- math[math.part.2,]
+math.test.2 <- math[-math.part.2,]
+
+## Portuguese training and testing data
+por.training.2 <- por[por.part.2,]
+por.test.2 <- por[-por.part.2,]
+
+
+set.seed(2000)
+math_kNN <- train(G3~., #model formula everything used to classify outcome
+                   data = math.training.2, #use the training data
+                   method = 'knn',# indicates the use of kNN model
+                   na.action = na.omit)
+
+
+math_eval <-(predict(math_kNN, newdata = math.test.2))
+
+math_eval_prob <- predict(math_kNN, newdata = math.test.2, type = "prob")
+
+math_conf_matrix <- confusionMatrix(math_eval, math.test.2$G3, positive = "1", dnn=c("Prediction", "Actual"), mode = "everything")
+
+math_conf_matrix
+
+set.seed(2000)
+por_kNN <- train(G3~., #model formula everything used to classify outcome
+                   data = por.training.2, #use the training data
+                   method = 'knn', #indicates the use of kNN model
+                   na.action = na.omit)
+
+
+por_eval <-(predict(por_kNN, newdata = por.test.2))
+
+por_eval_prob <- predict(por_kNN, newdata = por.test.2, type = "prob")
+
+por_conf_matrix <- confusionMatrix(por_eval, por.test.2$G3, positive = "1", dnn=c("Prediction", "Actual"), mode = "everything")
+
+por_conf_matrix
+```
+
+As we can see from the confusion matrices of the two kNN mdels, these models are performing very subpar as well. The math decision tree has an accuracy of 56.41%, while the Portuguese tree has an accuracy of 49.37%. Both of these measures are pretty bad. The accuracy rate of the Portuguese kNN model is actually the lowest of all of the models, with poor other metrics for both models as well. With this in mind, we will not be using the kNN models.
+
+Therefore, with all of this information, we will be using the random forests as our final models for both math and Portuguese scores. These models had the best accuracy of the bunch of models we tested, with error rates of around 26% and 43%, which are decent at best in general, but are by far the best in comparison with the models we have looked at using these data.
+
+So, to answer our questions, we will use variable importance measures from our random forest models. The first visual we will look at is a data frame consisiting of variables for both models, as well as their MeanDecreaseGini value. The higher this value, the more significant the variable is to the model. Here, we will display the top five varibles for both math and Portuguese scores.
+
+```{r}
+
+math_importance <- data.frame(
+  Variable = rownames(as.data.frame(math_forest$importance)),
+  MeanDecreaseGini = as.data.frame(math_forest$importance)$MeanDecreaseGini
+)
+
+sorted_math <- math_importance[order(math_importance$MeanDecreaseGini),]
+sorted_math[26:30,]
+
+por_importance <- data.frame(
+  Variable = rownames(as.data.frame(por_forest$importance)),
+  MeanDecreaseGini = as.data.frame(por_forest$importance)$MeanDecreaseGini
+)
+
+sorted_por <- por_importance[order(por_importance$MeanDecreaseGini),]
+sorted_por[26:30,]
+```
+
+With the data frames above, we can spot similarities and differneces between the two models. A similarity we see is the presence of "Medu", "Fedu", and "absences" in the top five of both models. "Medu" and "Fedu" are mother's education and father's education, respectively. Where the two models differ in variable importnace is that the math model contains reason for attending the school and mother job (mjob), while the Portuguese model contains age and number of past class failures.
+
+To get a further look at variable importance, we can create graphical visuals of variables that contribute to the accuracy and Gini of the models. Below are graphs for both models, with variables towards the top being more significant. The first pair of graphs is for the math model, and the second pair is for the Portuguese model
+
+```{r}
+
+varImpPlot(math_forest,     #<- the randomForest model to use
+           sort = TRUE,        #<- whether to sort variables by decreasing order of importance
+           n.var = 10,        #<- number of variables to display
+           main = "Important Factors",
+           #cex = 2,           #<- size of characters or symbols
+           bg = "white",       #<- background color for the plot
+           color = "blue",     #<- color to use for the points and labels
+           lcolor = "orange")
+
+varImpPlot(por_forest,     #<- the randomForest model to use
+           sort = TRUE,        #<- whether to sort variables by decreasing order of importance
+           n.var = 10,        #<- number of variables to display
+           main = "Important Factors",
+           #cex = 2,           #<- size of characters or symbols
+           bg = "white",       #<- background color for the plot
+           color = "blue",     #<- color to use for the points and labels
+           lcolor = "orange")
+
+```
+
+Given the visuals above, we can point out some significant results. A big similarity we see between the two models is that the most important variable to accuracy is number of past class failures. Other variables that share common significance between the two models are absences, mother's education (medu), father's education (fedu), mother's job (mjob), desire for higher education (higher), weekly alcohol consumption (Walc), a health status (health). One difference we can see between the two models is that for the math model, absences is the most important variable to the Gini value, while number of past class failures is the most important for the Portuguese models. Another difference to note is that father's education is the second most important variable for accuracy in the Portuguese model, while it is not even in the top ten of the math model.
+
+# Evaluation of the Model
+
+To evaluate our models' performances, we will look at several different metrics.  The first step in this process is to add the models' predictions on the testing data. The initial error rates were calculated on the training data, but we now utilize the testing data to evaluate the accurcy and other metrics of the models. Seen below are the confusion matrices of both the math and Portuguese models.
+
+```{r}
+
+math_predict = predict(math_forest,      #<- a randomForest model
+                            math.test,      #<- the test data set to use
+                            type = "response",   #<- what results to produce, see the help menu for the options
+                            predict.all = TRUE,  #<- should the predictions of all trees be kept?
+                            proximity = TRUE)
+
+math_predict_prob = predict(math_forest,      #<- a randomForest model
+                            math.test,      #<- the test data set to use
+                            type = "prob",   #<- what results to produce, see the help menu for the options
+                            predict.all = TRUE,  #<- should the predictions of all trees be kept?
+                            proximity = TRUE)
+
+por_predict = predict(por_forest,      #<- a randomForest model
+                            por.test,      #<- the test data set to use
+                            type = "response",   #<- what results to produce, see the help menu for the options
+                            predict.all = TRUE,  #<- should the predictions of all trees be kept?
+                            proximity = TRUE)
+
+por_predict_prob = predict(por_forest,      #<- a randomForest model
+                            por.test,      #<- the test data set to use
+                            type = "prob",   #<- what results to produce, see the help menu for the options
+                            predict.all = TRUE,  #<- should the predictions of all trees be kept?
+                            proximity = TRUE)
+
+math_test_pred = data.frame(math.test, 
+                                 Prediction = math_predict$predicted$aggregate)
+
+por_test_pred = data.frame(por.test, 
+                                 Prediction = por_predict$predicted$aggregate)
+
+math_test_matrix_RF = table(math_test_pred$G3, 
+                            math_test_pred$Prediction)
+
+por_test_matrix_RF = table(por_test_pred$G3, 
+                            por_test_pred$Prediction)
+
+confusionMatrix(math_test_pred$Prediction, math_test_pred$G3, positive = "1", 
+                dnn=c("Prediction", "Actual"), mode = "everything")
+
+confusionMatrix(por_test_pred$Prediction, por_test_pred$G3, positive = "1", 
+                dnn=c("Prediction", "Actual"), mode = "everything")
+
+```
+
+With the predictions on the testing data, we actually see increases in accuracy in both models. The model accuracy for the math data is now 64.1%, compared to around 57% from earlier. The accuracy for the Portuguese model is also a step up, at 76.32%, compared to around 75% from earlier. Both of these metrics are decent, but surely have plenty room for improvement. However, the accuracies for both models are well above the accuracy from random guessing, which would be 33.33% in this case. Another metric we can look at for the models is sensitivity. For the math model, we see that the sensitivity for poor and excellent performance are low, at 0.3 and 0.5, respectively, while it is 0.89 for good performance, which is very good. For the Portuguese model, we have much more consistent, good sensitivities. The sensitivies are 0.75 for poor performance, 0.73 for good performance, and 0.82 for excellent performance, all of which are good measures. Another measure we can point out is the specificity and false positive rate (FPR). The FPR is one minus the specificity. Therefore, we see that the FPRs for the math model are very good for poor and excellent performance, at around 4.5% and 7%, respectively, while it is much more poor for good performance, at 55%. The FPRs for the Portuguese model are very good as well. For poor performance, our FPR is 0%, while it is around 17.4% for good performance and 18.2% for excellent performance. The last measure to look at here is the Kappa value. For the math model, the Kapp is 0.38, which represents a moderate agreement on how to classify outcomes, while for Portuguese, it is 0.6426, which represents a more substaintial agreement.
+
+
+# Fairness Assessment
+
+```{r}
+
+table(math$sex)
+
+fair_eval_data <- cbind(math.test,predicted=math_predict$predicted$aggregate, prob=math_predict_prob$predicted$aggregate)
+
+dpp <- prop_parity(data = fair_eval_data, 
+                   group="sex", #protected class
+                   probs = "prob.good",
+                   preds = "predicted",
+                   cutoff = .5,#threshold
+                   base = "M")
+
+dpp$Metric
+
+dpp$Probability_plot
+
+table(por$sex)
+
+por_fair_eval_data <- cbind(por.test,predicted=por_predict$predicted$aggregate, prob=por_predict_prob$predicted$aggregate)
+
+dpp <- prop_parity(data = por_fair_eval_data, 
+                   group="sex", #protected class
+                   probs = "prob.good",
+                   preds = "predicted",
+                   cutoff = .5,#threshold
+                   base = "M")
+
+dpp$Metric
+
+dpp$Probability_plot
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
