@@ -1,12 +1,12 @@
 ---
-title: "Comparing Students' Grades"
+title: "EDA"
 author: "Jay Ralyea, William Cull, and John Hope"
 date: "5/5/2021"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, fig.show = "hold", out.width="50%")
 library(tidyverse) # whole bunch of useful packages
 library(tidymodels)
 library(modelr)
