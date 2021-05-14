@@ -1,0 +1,261 @@
+---
+title: "Comparing Students' Grades"
+author: "Jay Ralyea, William Cull, and John Hope"
+date: "5/5/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse) # whole bunch of useful packages
+library(tidymodels)
+library(modelr)
+library(randomForest) # builds random forest models
+library(caret) # builds models and partitions data
+library(viridis)
+```
+
+
+```{r, include=FALSE}
+## Load in the data
+math <- read_csv("student-mat.csv")
+por <- read_csv("student-por.csv")
+
+## Data exploration
+quantile(math$G3)
+quantile(por$G3)
+
+## Percent zeros
+table(math$G3)[1] / nrow(math)
+table(por$G3)[1] / nrow(por)
+
+## Factor variables in each dataset
+factors <- c("school", "sex", "address", "famsize", "Pstatus", "Medu",
+             "Fedu", "Mjob", "Fjob", "reason", "guardian", "traveltime",
+             "studytime", "failures", "schoolsup", "famsup", "paid",
+             "activities", "nursery", "higher", "internet", "romantic")
+
+math[factors] <- sapply(math[factors], as.factor)
+por[factors] <- sapply(por[factors], as.factor)
+
+## Remove G1 and G2 grades (determine G3 grade)
+math <- math %>%
+  select(-G1, -G2)
+por <- por %>%
+  select(-G1, -G2)
+
+## Change the G3 score to be poor, good, or excellent
+math$G3 <- cut(math$G3,
+                   breaks = c(-Inf, 8, 13, Inf),
+                   labels = c("poor", "good", "excellent"))
+por$G3 <- cut(por$G3,
+                  breaks = c(-Inf, 10, 13, Inf),
+                  labels = c("poor", "good", "excellent"))
+  
+```
+
+
+# EDA
+
+When performing initial exploratory data analysis of both files, we noticed some discrepancies between the two datasets as well as within each of the datasets. For example, the math dataset contains fewer records than the Portuguese dataset. There were 395 students listed in math class but 649 were in Portuguese class. To remedy this issue, we decided to undersample the Portuguese dataset so that its size matched that of the math dataset. This may have created a new issue regarding whether or not we had an adequate number of data points to properly generate a classification model. Additionally, there were a few factors that, during early analysis, appeared to be significant in predicting success. The discrepancies in the data and a few of the potentially important factors are listed below. 
+
+## Data Issues {.tabset}
+### School
+```{r}
+# School
+math %>%
+  ggplot(aes(x = school, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  labs(title = "Distirbution of Math G3 Scores by School", 
+       x = "School", y = "Count of Scores", fill = "G3 Score") +
+  scale_x_discrete(labels = c("GP" = "Gabriel Pereira", 
+                              "MS" = "Mouzinho da Silveira"))
+
+por %>%
+  ggplot(aes(x = school, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  labs(title = "Distirbution of Portuguese G3 Scores by School", 
+       x = "School", y = "Count of Scores", fill = "G3 Score") +
+  scale_x_discrete(labels = c("GP" = "Gabriel Pereira", 
+                              "MS" = "Mouzinho da Silveira"))
+```
+
+As seen in the graphs above, there is not an equal number of students from both schools in each of the datasets. Our initial exploration shows the math dataset had 349 students from the Gabriel Pereira school as opposed to the 46 from Mouzinho da Silveira. This raises concerns over the representativeness of the sample from the da Silveira school. Similarly, the Portuguese dataset had 423 Gabriel Pereira students compared to 226 from Mouzinho da Silveira. Regardless, there appears to be a difference between performance in Portuguese between the two schools. Those who attend Pereira are more likely to achieve an excellent score than those who attend Silveira. This distinction may appear in the final model.
+
+
+### Sex
+```{r}
+# Gender
+math %>%
+  ggplot(aes(x = sex, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw() + labs(title = "Distribution of Math G3 Scores by Sex",
+                    x = "Sex", y = "Count of Scores", fill = "G3 Score") + 
+  scale_x_discrete(labels = c("F" = "Female",
+                              "M" = "Male"))
+
+por %>%
+  ggplot(aes(x = sex, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw()+ labs(title = "Distribution of Portuguese G3 Scores by Sex",
+                    x = "Sex", y = "Count of Scores", fill = "G3 Score") + 
+  scale_x_discrete(labels = c("F" = "Female",
+                              "M" = "Male"))
+```
+
+Another issue within both datasets is that there are fewer male students than female students. This lack of parity between the two factor levels may result in poor model results when predicting success in either class if sex proves to be an important factor. On the other hand, ther appears to be a distinction between females' success in math and those of their male counterparts. Males seem to achieve excellent scores at a slightly higher rate than females. Conversely, females may attain excellent scores at a higher rate than males. 
+
+## Important Factors {.tabset}
+
+### Failures
+```{r}
+# Failures
+math %>%
+  ggplot(aes(x = failures, fill = G3)) + 
+  geom_bar(position = "dodge") + 
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of Math G3 Scores by Number of Failures",
+       x = "Number of Failures", y = "Count of Scores", fill = "G3 Score") +
+  theme_bw()
+
+por %>%
+  ggplot(aes(x = failures, fill = G3)) + 
+  geom_bar(position = "dodge") + 
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of Portuguese G3 Scores by Number of Failures",
+       x = "Number of Failures", y = "Count of Scores", fill = "G3 Score") +
+  theme_bw()
+```
+
+Unsurprisingly, the number of failures a student has within any given class negatively affects their final course grade. Those with a higher number of failures on assignments or exams are more likely to receive a lower grade. This is true across both datasets, albeit with relatively small samples for those with failures, and is a variable we expect to appear as influential in our final model.
+
+### Age
+
+```{r}
+# Age
+math %>%
+  ggplot(aes(x = age, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() + 
+  theme_bw() +
+  scale_x_continuous(breaks = seq(15, 22, 1)) +
+  theme(panel.grid.minor.x = element_blank()) +
+  labs(title = "Distribution of Math G3 Scores by Age", 
+       x = "Age", y = "Count of Scores", fill = "G3 Score")
+
+por %>%
+  ggplot(aes(x = age, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() + 
+  theme_bw() +
+  scale_x_continuous(breaks = seq(15, 22, 1)) +
+  theme(panel.grid.minor.x = element_blank()) +
+  labs(title = "Distribution of Portuguese G3 Scores by Age", 
+       x = "Age", y = "Count of Scores", fill = "G3 Score")
+```
+
+Generally, the older the student is the more likely they are to succeed. This is especially true for their Portuguese class. The exception to this rule is this generalization is students who are over 18 years of age. Students 19 years old or older likely have extenuating circumstances that are keeping them in the secondary school. Those students may have been held back in the past due to performance or behavioral issues. Either of these situations is likely to have a negative effect on the student's performance in the classroom.
+
+### Parental Job - Math
+```{r}
+# Parental job - Math
+math %>%
+  ggplot(aes(x = Mjob, fill = G3)) + 
+  geom_bar(position = "dodge") + 
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of Math G3 Scores by Mother's Job",
+       x = "Mother's Job", y = "Count of Scores", fill = "G3 Score") +
+  theme_bw()
+
+math %>%
+  ggplot(aes(x = Fjob, fill = G3)) + 
+  geom_bar(position = "dodge") + 
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of Math G3 Scores by Father's Job",
+       x = "Father's Job", y = "Count of Scores", fill = "G3 Score") +
+  theme_bw()
+```
+
+For both datasets the "other" job title has many more entries than the other levels of the parental job type factor. Regardless, there is still important information to glean from the data. For students with mothers who work in the health field, their scores appear to be higher than their peers. Curiously, this does not appear to translate to students whose fathers work in the health industry. Instead, students whose fathers are teachers generally have higher math scores than other students. One potential reason for this discrepancy is that students' fathers generally have jobs classified as "other" than students' mothers. The overwhelming number of students with fathers in the "other" industry means that the "teacher" classification may have a misrepresentative sample. With more data for fathers' jobs, we may see the teacher factor become less important and see the health factor become more important, similar to the distributions for mothers' jobs.
+
+### Parental Job - Portuguese
+```{r}
+# Parental job - Portuguese
+por %>%
+  ggplot(aes(x = Mjob, fill = G3)) + 
+  geom_bar(position = "dodge") + 
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of Portuguese G3 Scores by Mother's Job",
+       x = "Mother's Job", y = "Count of Scores", fill = "G3 Score") +
+  theme_bw()
+
+por %>%
+  ggplot(aes(x = Fjob, fill = G3)) + 
+  geom_bar(position = "dodge") + 
+  scale_fill_viridis_d() +
+  labs(title = "Distribution of Portuguese G3 Scores by Father's Job",
+       x = "Father's Job", y = "Count of Scores", fill = "G3 Score") +
+  theme_bw()
+```
+
+For the Portuguese data, there are a few outcomes that contrast the outcomes of the math dataset. For starters, when a parent stays home with their child, the student appears to do worse in their Portuguese class than other students. This goes against conventional wisdom that when a parent stays home with a child they are more likely to succeed in the future. Furthermore, having a mother as a teacher positively impacts the student's final grade in Portuguese. This is consistent with the father's job for the math data, and it is also consistent with the father's job for the Portuguese data. As seen in the math data, having a mother who works in the health industry may increase the student's ability in the classroom. 
+
+### Family Size
+```{r}
+# Family size
+math %>%
+  ggplot(aes(x = famsize, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  labs(title = "Distirbution of Math G3 Scores by Family Size",
+       y = "Count of Scores", x = "Family Size", fill = "G3 Score") +
+  scale_x_discrete(labels = c("GT3" = "Greater than 3",
+                              "LE3" = "Less than or equal to 3"))
+
+por %>%
+  ggplot(aes(x = famsize, fill = G3)) + 
+  geom_bar(position = "dodge") +
+  scale_fill_viridis_d() +
+  theme_bw() +
+  labs(title = "Distirbution of Portuguese G3 Scores by Family Size",
+       y = "Count of Scores", x = "Family Size", fill = "G3 Score") +
+  scale_x_discrete(labels = c("GT3" = "Greater than 3",
+                              "LE3" = "Less than or equal to 3"))
+```
+
+Initially, we anticipated students with a greater family size, more than three members, would have better success in both math and Portuguese. This, however, may not be the case. Even though there are students who have three family members or fewer, indicating a missing parent, these students appear to perform as well as students with both of their parents and have siblings. While we anticipate most families who fall within the greater than three designation have both parents in their household, this may not always be true. It is possible a household consists of a single parent who happens to be raising three or more siblings. In this instance, the student may be negatively affected by not having both parents in his or her life, thus evening out the distribution. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
