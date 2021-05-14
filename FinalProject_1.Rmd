@@ -275,60 +275,60 @@ The last set of models we will be testing out are kNN models. For kNN, we had to
 ```{r}
 ## kNN
 
-math <- math[c(3,7,8,13:15,24:31)]
-por <- por[c(3,7,8,13:15,24:31)]
+math.2 <- math[c(3,7,8,13:15,24:31)]
+por.2 <- por[c(3,7,8,13:15,24:31)]
 
-math[1:13] = lapply(math[1:13], function(x) as.numeric(x))
-por[1:13] = lapply(por[1:13], function(x) as.numeric(x))
+math.2[1:13] = lapply(math.2[1:13], function(x) as.numeric(x))
+por.2[1:13] = lapply(por.2[1:13], function(x) as.numeric(x))
 
-math[1:13] = lapply(math[-14], function(x) scale(x))
-por[1:13] = lapply(por[-14], function(x) scale(x))
+math.2[1:13] = lapply(math.2[-14], function(x) scale(x))
+por.2[1:13] = lapply(por.2[-14], function(x) scale(x))
 
-math <- as.data.frame(math)
-por <- as.data.frame(por)
+math.2 <- as.data.frame(math.2)
+por.2 <- as.data.frame(por.2)
               
 ## Create the partition
 set.seed(2000) #ensure reproducibility
-math.part <- createDataPartition(math$G3, times=1, p=0.8, list=FALSE)
+math.part.2 <- createDataPartition(math.2$G3, times=1, p=0.8, list=FALSE)
 set.seed(2000) #ensure reproducibility
-por.part <- createDataPartition(por$G3, times=1, p=0.8, list = FALSE)
+por.part.2 <- createDataPartition(por.2$G3, times=1, p=0.8, list = FALSE)
 
 ## Math training and testing data
-math.training <- math[math.part,]
-math.test <- math[-math.part,]
+math.training.2 <- math[math.part.2,]
+math.test.2 <- math[-math.part.2,]
 
 ## Portuguese training and testing data
-por.training <- por[por.part,]
-por.test <- por[-por.part,]
+por.training.2 <- por[por.part.2,]
+por.test.2 <- por[-por.part.2,]
 
 
 set.seed(2000)
 math_kNN <- train(G3~., #model formula everything used to classify outcome
-                   data = math.training, #use the training data
+                   data = math.training.2, #use the training data
                    method = 'knn',# indicates the use of kNN model
                    na.action = na.omit)
 
 
-math_eval <-(predict(math_kNN, newdata = math.test))
+math_eval <-(predict(math_kNN, newdata = math.test.2))
 
-math_eval_prob <- predict(math_kNN, newdata = math.test, type = "prob")
+math_eval_prob <- predict(math_kNN, newdata = math.test.2, type = "prob")
 
-math_conf_matrix <- confusionMatrix(math_eval, math.test$G3, positive = "1", dnn=c("Prediction", "Actual"), mode = "everything")
+math_conf_matrix <- confusionMatrix(math_eval, math.test.2$G3, positive = "1", dnn=c("Prediction", "Actual"), mode = "everything")
 
 math_conf_matrix
 
 set.seed(2000)
 por_kNN <- train(G3~., #model formula everything used to classify outcome
-                   data = por.training, #use the training data
+                   data = por.training.2, #use the training data
                    method = 'knn', #indicates the use of kNN model
                    na.action = na.omit)
 
 
-por_eval <-(predict(por_kNN, newdata = por.test))
+por_eval <-(predict(por_kNN, newdata = por.test.2))
 
-por_eval_prob <- predict(por_kNN, newdata = por.test, type = "prob")
+por_eval_prob <- predict(por_kNN, newdata = por.test.2, type = "prob")
 
-por_conf_matrix <- confusionMatrix(por_eval, por.test$G3, positive = "1", dnn=c("Prediction", "Actual"), mode = "everything")
+por_conf_matrix <- confusionMatrix(por_eval, por.test.2$G3, positive = "1", dnn=c("Prediction", "Actual"), mode = "everything")
 
 por_conf_matrix
 ```
@@ -340,6 +340,7 @@ Therefore, with all of this information, we will be using the random forests as 
 So, to answer our questions, we will use variable importance measures from our random forest models. The first visual we will look at is a data frame consisiting of variables for both models, as well as their MeanDecreaseGini value. The higher this value, the more significant the variable is to the model. Here, we will display the top five varibles for both math and Portuguese scores.
 
 ```{r}
+
 math_importance <- data.frame(
   Variable = rownames(as.data.frame(math_forest$importance)),
   MeanDecreaseGini = as.data.frame(math_forest$importance)$MeanDecreaseGini
